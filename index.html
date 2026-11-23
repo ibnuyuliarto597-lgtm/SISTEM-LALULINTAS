@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulasi PLC Lampu Lalu Lintas 4-Arah (Single Cycle)</title>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- Lucide Icons -->
+<script src="https://unpkg.com/lucide@latest"></script>
+<!-- Google Fonts (Quicksand untuk nuansa bulat & kyut) -->
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+body {
+    font-family: 'Quicksand', sans-serif;
+    background-color: #fff5f7;
+    background-image: radial-gradient(#fbcfe8 1.5px, transparent 1.5px);
+    background-size: 24px 24px;
+}
+.code-font {
+    font-family: 'Fira Code', monospace;
+}
+.kawaii-card {
+    background-color: #ffffff;
+    border: 3px solid #fbcfe8;
+    box-shadow: 0 8px 0 #fbcfe8;
+}
+.kawaii-btn {
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.kawaii-btn:active {
+    transform: translateY(3px);
+}
+</style>
+</head>
+<body class="text-slate-700 min-h-screen flex flex-col">
+<!-- Header Navigation -->
+<header class="bg-white/95 backdrop-blur-md border-b-4 border-pink-200 px-6 py-4 flex flex-wrap justify-between items-center shadow-sm">
+<div class="flex items-center gap-3">
+<div class="p-2.5 bg-gradient-to-br from-pink-400 to-rose-400 rounded-2xl text-white shadow-md">
+<i data-lucide="sparkles" class="w-6 h-6"></i>
+</div>
+<div>
+<h1 class="font-bold text-lg sm:text-xl leading-tight text-pink-600">Traffic Control ✨</h1>
+<p class="text-xs font-semibold text-slate-400">Simulasi Logika Timer Tunggal 2D (Single-Shot Green Cycle)</p>
+</div>
+</div>
+<div class="flex items-center gap-3 mt-2 sm:mt-0">
+<div class="flex items-center gap-2 bg-emerald-50 px-3.5 py-1.5 rounded-full border-2 border-emerald-200 text-xs">
+<span id="status-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+<span class="text-emerald-600 font-bold" id="plc-status-text">PLC RUNNING (1 LAMPU HIJAU)</span>
+</div>
+<div class="text-xs font-bold bg-sky-50 text-sky-600 px-3.5 py-1.5 rounded-full border-2 border-sky-200">
+Scan: <span id="scan-time">12ms</span>
+</div>
+</div>
+</header>
+
+<!-- Main Content Container -->
+<main class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-4 md:p-6 max-w-[1650px] w-full mx-auto">
+<!-- Left Column: Visual 2D Intersection Simulation (6 cols) -->
+<section class="lg:col-span-6 flex flex-col gap-4">
+<div class="kawaii-card rounded-3xl p-5 flex-1 flex flex-col">
+<div class="flex flex-wrap justify-between items-center gap-2 mb-3">
+<h2 class="text-md font-bold flex items-center gap-2 text-slate-700">
+<span class="p-1.5 bg-amber-100 text-amber-500 rounded-xl"><i data-lucide="map-pin" class="w-4 h-4"></i></span>
+Simpang 4 Chibi Town (2D)
+</h2>
+<span class="text-xs bg-pink-50 border-2 border-pink-200 px-3 py-1 rounded-full font-bold text-slate-600">
+Status: <span id="current-phase-name" class="text-emerald-500 font-extrabold">ARAH UTARA HIJAU (1 LAMPU)</span>
+</span>
+</div>
+
+<!-- Canvas 2D Road Intersection Container -->
+<div id="intersection-box" class="relative w-full aspect-square max-w-[500px] mx-auto bg-emerald-100 rounded-3xl overflow-hidden border-4 border-pink-200 flex items-center justify-center shadow-inner">
+<canvas id="traffic-canvas-2d" class="block w-full h-full"></canvas>
+
+<!-- Badge Lucu Pojok Kiri Atas -->
+<div class="absolute top-3 left-3 z-20 bg-white/90 border-2 border-pink-200 backdrop-blur-sm px-3 py-1 rounded-full text-[11px] font-bold text-pink-500 flex items-center gap-1.5 pointer-events-none shadow-sm">
+<span>🌸 Mode 2D Pastel</span>
+</div>
+
+<!-- Dynamic Countdown Display HUD (Pojok Kanan Atas) -->
+<div class="absolute top-3 right-3 z-20 bg-white/95 border-2 border-sky-200 backdrop-blur-md px-3.5 py-1.5 rounded-2xl flex flex-col items-center justify-center shadow-md pointer-events-none">
+<span class="text-[9px] text-sky-400 font-bold uppercase tracking-wider">Sisa Waktu</span>
+<span id="timer-display" class="text-2xl font-extrabold font-mono text-pink-500 leading-none my-0.5">07</span>
+<span class="text-[9px] font-bold text-slate-400">Detik</span>
+</div>
+</div>
+
+<!-- Control Panel & Pengatur Durasi Hijau -->
+<div class="mt-4 flex flex-col gap-3">
+<div class="bg-sky-50/80 border-2 border-sky-200 p-3.5 rounded-2xl flex items-center justify-between">
+<span class="text-xs text-slate-600 font-bold flex items-center gap-1.5">
+<i data-lucide="sliders" class="w-4 h-4 text-sky-500"></i> Atur Durasi Lampu Hijau: <strong id="preset-value-label" class="text-pink-500 text-sm">7s</strong>
+</span>
+<div class="flex items-center gap-2">
+<input type="range" id="duration-slider" min="3" max="20" value="7" oninput="updateDurationPreset(this.value)" class="w-28 accent-pink-400 cursor-pointer">
+</div>
+</div>
+
+<div class="grid grid-cols-3 gap-3">
+<button id="btn-start" onclick="setPlcMode('RUN')" class="kawaii-btn bg-emerald-400 hover:bg-emerald-500 text-white font-bold py-2.5 px-3 rounded-2xl flex items-center justify-center gap-2 text-xs shadow-[0_4px_0_#059669] cursor-pointer">
+<i data-lucide="play" class="w-4 h-4"></i> START (AUTO)
+</button>
+<button id="btn-stop" onclick="setPlcMode('STOP')" class="kawaii-btn bg-rose-400 hover:bg-rose-500 text-white font-bold py-2.5 px-3 rounded-2xl flex items-center justify-center gap-2 text-xs shadow-[0_4px_0_#e11d48] cursor-pointer">
+<i data-lucide="square" class="w-4 h-4"></i> STOP (MERAH)
+</button>
+<button id="btn-night" onclick="setPlcMode('DARURAT')" class="kawaii-btn bg-amber-400 hover:bg-amber-500 text-slate-800 font-bold py-2.5 px-3 rounded-2xl flex items-center justify-center gap-2 text-xs shadow-[0_4px_0_#d97706] cursor-pointer">
+<i data-lucide="alert-triangle" class="w-4 h-4"></i> DARURAT
+</button>
+</div>
+</div>
+</div>
+</section>
+
+<!-- Right Column: PLC Control & I/O Display (6 cols) -->
+<section class="lg:col-span-6 flex flex-col gap-4">
+<!-- Pemetaan I/O Modbus -->
+<div class="kawaii-card rounded-3xl p-5 flex-1 flex flex-col">
+<div class="flex flex-wrap justify-between items-center gap-2 border-b-2 border-pink-100 pb-3 mb-4">
+<div class="flex items-center gap-2 text-xs font-bold text-slate-700">
+<div class="p-1.5 bg-pink-100 text-pink-500 rounded-xl">
+<i data-lucide="layers" class="w-4 h-4"></i>
+</div>
+<span>Pemetaan I/O Modbus (1 Lampu Hijau Aktif per Waktu)</span>
+</div>
+<span class="text-xs text-pink-400 font-bold bg-pink-50 px-2.5 py-1 rounded-full">Modbus TCP Port 502</span>
+</div>
+
+<!-- I/O Hardware Mapping Status -->
+<div id="tab-io" class="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
+<!-- Perintah HMI -> PLC (Modbus Coils) -->
+<div class="bg-pink-50/60 p-3.5 rounded-2xl border-2 border-pink-200">
+<h3 class="text-xs font-bold text-pink-600 border-b-2 border-pink-200/70 pb-2 mb-2.5 flex justify-between">
+<span>PERINTAH HMI &rarr; PLC</span>
+<span class="text-pink-400">Coils</span>
+</h3>
+<div class="space-y-2 text-xs font-bold">
+<div class="flex justify-between items-center bg-white p-2.5 rounded-xl border border-pink-100 shadow-xs">
+<span>Coil 0 (START)</span>
+<span id="io-coil0" class="px-2.5 py-0.5 text-[10px] rounded-full bg-emerald-100 text-emerald-600 border border-emerald-300 font-extrabold">ON</span>
+</div>
+<div class="flex justify-between items-center bg-white p-2.5 rounded-xl border border-pink-100 shadow-xs">
+<span>Coil 1 (STOP)</span>
+<span id="io-coil1" class="px-2.5 py-0.5 text-[10px] rounded-full bg-slate-100 text-slate-400">OFF</span>
+</div>
+<div class="flex justify-between items-center bg-white p-2.5 rounded-xl border border-pink-100 shadow-xs">
+<span>Coil 2 (DARURAT)</span>
+<span id="io-coil3" class="px-2.5 py-0.5 text-[10px] rounded-full bg-slate-100 text-slate-400">OFF</span>
+</div>
+</div>
+</div>
+
+<!-- Status PLC -> HMI (Modbus Inputs per Arah) -->
+<div class="bg-sky-50/60 p-3.5 rounded-2xl border-2 border-sky-200">
+<h3 class="text-xs font-bold text-sky-600 border-b-2 border-sky-200/70 pb-2 mb-2.5 flex justify-between">
+<span>STATUS LAMPU HIJAU</span>
+<span class="text-sky-400">Inputs</span>
+</h3>
+<div class="space-y-2 text-xs font-bold">
+<div class="flex justify-between items-center bg-white p-2 rounded-xl border border-sky-100 shadow-xs">
+<span>Input 0 (UTARA_HIJAU)</span>
+<span id="io-n-g" class="px-2.5 py-0.5 text-[10px] rounded-full bg-emerald-100 text-emerald-600 border border-emerald-300 font-extrabold">ON</span>
+</div>
+<div class="flex justify-between items-center bg-white p-2 rounded-xl border border-sky-100 shadow-xs">
+<span>Input 1 (TIMUR_HIJAU)</span>
+<span id="io-e-g" class="px-2.5 py-0.5 text-[10px] rounded-full bg-slate-100 text-slate-400">OFF</span>
+</div>
+<div class="flex justify-between items-center bg-white p-2 rounded-xl border border-sky-100 shadow-xs">
+<span>Input 2 (SELATAN_HIJAU)</span>
+<span id="io-s-g" class="px-2.5 py-0.5 text-[10px] rounded-full bg-slate-100 text-slate-400">OFF</span>
+</div>
+<div class="flex justify-between items-center bg-white p-2 rounded-xl border border-sky-100 shadow-xs">
+<span>Input 3 (BARAT_HIJAU)</span>
+<span id="io-w-g" class="px-2.5 py-0.5 text-[10px] rounded-full bg-slate-100 text-slate-400">OFF</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Internal Registers & Timers Monitoring -->
+<div class="kawaii-card rounded-3xl p-5">
+<h3 class="text-xs font-bold text-slate-700 mb-3 flex items-center gap-2">
+<span class="p-1.5 bg-amber-100 text-amber-500 rounded-xl"><i data-lucide="timer" class="w-4 h-4"></i></span>
+Monitoring Timer TON & Interlock Tunggal
+</h3>
+<div class="grid grid-cols-3 gap-3 text-center">
+<div class="bg-purple-50 p-3 rounded-2xl border-2 border-purple-200">
+<span class="text-[10px] text-purple-400 font-bold block">TIMER TON (T0)</span>
+<span id="t-acc" class="text-xl font-extrabold text-purple-600">0.0s</span>
+<span class="text-[10px] font-semibold text-slate-400 block mt-0.5">Preset: <span id="t-preset">7s</span></span>
+</div>
+<div class="bg-emerald-50 p-3 rounded-2xl border-2 border-emerald-200">
+<span class="text-[10px] text-emerald-500 font-bold block">ARAH HIJAU AKTIF</span>
+<span id="active-dir" class="text-xl font-extrabold text-emerald-600">UTARA</span>
+<span class="text-[10px] font-semibold text-slate-400 block mt-0.5">Hanya 1 Lampu Hijau</span>
+</div>
+<div class="bg-sky-50 p-3 rounded-2xl border-2 border-sky-200">
+<span class="text-[10px] text-sky-500 font-bold block">INTERLOCK STATUS</span>
+<span id="interlock-status" class="text-xl font-extrabold text-sky-600">AMAN (1/4)</span>
+<span class="text-[10px] font-semibold text-slate-400 block mt-0.5">Maksimal 1 Hijau</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+
+<!-- Footer -->
+<footer class="bg-white/90 border-t-2 border-pink-100 px-6 py-3 text-center text-xs font-semibold text-slate-400">
+Simulasi Logika Pemrograman PLC & HMI 2D Kawaii Lampu Lalu Lintas (Single Green Cycle) © 2026 ✨
+</footer>
+
+<!-- JavaScript Simulator Engine -->
+<script>
+// Inisialisasi ikon Lucide dengan pengecekan aman
+function initIcons() {
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
+}
+
+class PLCTrafficController {
+    constructor() {
+        this.coils = { START: true, STOP: false, DARURAT: false };
+        this.timer = { ACC: 0, PRE: 7 };
+        this.yellowDuration = 2.0; // Durasi transisi lampu kuning (detik)
+        this.allRedDuration = 1.0; // Jeda keamanan semua merah (detik)
+        this.subPhase = 'GREEN';   // 'GREEN' -> 'YELLOW' -> 'ALL_RED'
+        this.directions = ['UTARA', 'TIMUR', 'SELATAN', 'BARAT'];
+        this.activeIndex = 0; // Menentukan 1 arah yang aktif
+        this.outputs = {
+            N_R: false, N_Y: false, N_G: true,
+            E_R: true,  E_Y: false, E_G: false,
+            S_R: true,  S_Y: false, S_G: false,
+            W_R: true,  W_Y: false, W_G: false
+        };
+        this.flashState = false;
+        this.flashTimer = 0;
+        this.mode = 'RUN';
+    }
+
+    getCurrentTargetDuration() {
+        if (this.subPhase === 'GREEN') return this.timer.PRE;
+        if (this.subPhase === 'YELLOW') return this.yellowDuration;
+        return this.allRedDuration;
+    }
+
+    scanCycle(deltaTime) {
+        // Skenario Darurat: Kuning berkedip di semua arah
+        if (this.mode === 'DARURAT' || this.coils.DARURAT) {
+            this.flashTimer += deltaTime;
+            if (this.flashTimer >= 0.5) {
+                this.flashTimer = 0;
+                this.flashState = !this.flashState;
+            }
+            this.outputs = {
+                N_R: false, N_Y: this.flashState, N_G: false,
+                E_R: false, E_Y: this.flashState, E_G: false,
+                S_R: false, S_Y: this.flashState, S_G: false,
+                W_R: false, W_Y: this.flashState, W_G: false
+            };
+            return;
+        }
+
+        // Skenario Stop: Semua lampu merah menyala
+        if (this.mode === 'STOP' || this.coils.STOP || !this.coils.START) {
+            this.outputs = {
+                N_R: true, N_Y: false, N_G: false,
+                E_R: true, E_Y: false, E_G: false,
+                S_R: true, S_Y: false, S_G: false,
+                W_R: true, W_Y: false, W_G: false
+            };
+            this.timer.ACC = 0;
+            this.subPhase = 'GREEN';
+            return;
+        }
+
+        // Skenario Normal: Transisi bertahap Hijau -> Kuning -> All-Red -> Arah Berikutnya
+        this.timer.ACC += deltaTime;
+        const targetDur = this.getCurrentTargetDuration();
+
+        if (this.timer.ACC >= targetDur) {
+            this.timer.ACC = 0;
+            if (this.subPhase === 'GREEN') {
+                this.subPhase = 'YELLOW';
+            } else if (this.subPhase === 'YELLOW') {
+                this.subPhase = 'ALL_RED';
+            } else {
+                this.subPhase = 'GREEN';
+                this.activeIndex = (this.activeIndex + 1) % 4;
+            }
+        }
+
+        const dir = this.directions[this.activeIndex];
+        const isG = this.subPhase === 'GREEN';
+        const isY = this.subPhase === 'YELLOW';
+
+        this.outputs = {
+            N_R: !(dir === 'UTARA' && (isG || isY)),   N_Y: dir === 'UTARA' && isY,   N_G: dir === 'UTARA' && isG,
+            E_R: !(dir === 'TIMUR' && (isG || isY)),   E_Y: dir === 'TIMUR' && isY,   E_G: dir === 'TIMUR' && isG,
+            S_R: !(dir === 'SELATAN' && (isG || isY)), S_Y: dir === 'SELATAN' && isY, S_G: dir === 'SELATAN' && isG,
+            W_R: !(dir === 'BARAT' && (isG || isY)),   W_Y: dir === 'BARAT' && isY,   W_G: dir === 'BARAT' && isG
+        };
+    }
+}
+
+const plc = new PLCTrafficController();
+let lastTime = performance.now();
+
+function setPlcMode(mode) {
+    plc.mode = mode;
+    plc.timer.ACC = 0;
+    const statusText = document.getElementById('plc-status-text');
+    const statusDot = document.getElementById('status-dot');
+
+    if (mode === 'RUN') {
+        plc.coils.START = true;
+        plc.coils.STOP = false;
+        plc.coils.DARURAT = false;
+        statusText.innerText = "PLC RUNNING (1 LAMPU HIJAU)";
+        statusText.className = "text-emerald-600 font-bold";
+        statusDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping";
+    } else if (mode === 'STOP') {
+        plc.coils.START = false;
+        plc.coils.STOP = true;
+        plc.coils.DARURAT = false;
+        statusText.innerText = "PLC STOPPED (SEMUA MERAH)";
+        statusText.className = "text-rose-500 font-bold";
+        statusDot.className = "w-2.5 h-2.5 rounded-full bg-rose-400";
+    } else if (mode === 'DARURAT') {
+        plc.coils.DARURAT = true;
+        statusText.innerText = "SKENARIO DARURAT (KUNING BERKEDIP)";
+        statusText.className = "text-amber-600 font-bold";
+        statusDot.className = "w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping";
+    }
+}
+
+function updateUI() {
+    // Hitung mundur timer sesuai sub-fase aktif
+    const targetDur = plc.getCurrentTargetDuration();
+    const remaining = Math.max(0, Math.ceil(targetDur - plc.timer.ACC));
+    document.getElementById('timer-display').innerText = remaining < 10 ? `0${remaining}` : remaining;
+
+    // Label arah aktif
+    const phaseLabel = document.getElementById('current-phase-name');
+    const activeDirEl = document.getElementById('active-dir');
+    const currentDir = plc.directions[plc.activeIndex];
+
+    if (plc.mode === 'STOP') {
+        phaseLabel.innerText = "SEMUA LAMPU MERAH";
+        phaseLabel.className = "text-rose-500 font-extrabold";
+        activeDirEl.innerText = "NONE";
+        activeDirEl.className = "text-xl font-extrabold text-rose-500";
+    } else if (plc.mode === 'DARURAT' || plc.coils.DARURAT) {
+        phaseLabel.innerText = "KUNING BERKEDIP (DARURAT)";
+        phaseLabel.className = "text-amber-500 font-extrabold";
+        activeDirEl.innerText = "FLASH";
+        activeDirEl.className = "text-xl font-extrabold text-amber-500";
+    } else if (plc.subPhase === 'YELLOW') {
+        phaseLabel.innerText = `ARAH ${currentDir} KUNING (TRANSISI)`;
+        phaseLabel.className = "text-amber-500 font-extrabold";
+        activeDirEl.innerText = `${currentDir} (Y)`;
+        activeDirEl.className = "text-xl font-extrabold text-amber-500";
+    } else if (plc.subPhase === 'ALL_RED') {
+        phaseLabel.innerText = "ALL-RED CLEARANCE (JEDA AMAN)";
+        phaseLabel.className = "text-rose-500 font-extrabold";
+        activeDirEl.innerText = "ALL-RED";
+        activeDirEl.className = "text-xl font-extrabold text-rose-500";
+    } else {
+        phaseLabel.innerText = `ARAH ${currentDir} HIJAU (1 LAMPU)`;
+        phaseLabel.className = "text-emerald-500 font-extrabold";
+        activeDirEl.innerText = currentDir;
+        activeDirEl.className = "text-xl font-extrabold text-emerald-600";
+    }
+
+    // Monitoring Register & Interlock (Memastikan maksimal 1 hijau menyala)
+    document.getElementById('t-acc').innerText = plc.timer.ACC.toFixed(1) + 's';
+    document.getElementById('t-preset').innerText = targetDur + 's';
+
+    const greenCount = [plc.outputs.N_G, plc.outputs.E_G, plc.outputs.S_G, plc.outputs.W_G].filter(Boolean).length;
+    const interlockEl = document.getElementById('interlock-status');
+    interlockEl.innerText = `AMAN (${greenCount}/4)`;
+    interlockEl.className = greenCount <= 1
+        ? "text-xl font-extrabold text-sky-600"
+        : "text-xl font-extrabold text-rose-500";
+
+    // Update status I/O Modbus
+    updateIoBadge('io-coil0', plc.coils.START);
+    updateIoBadge('io-coil1', plc.coils.STOP);
+    updateIoBadge('io-coil3', plc.coils.DARURAT);
+
+    updateIoBadge('io-n-g', plc.outputs.N_G);
+    updateIoBadge('io-e-g', plc.outputs.E_G);
+    updateIoBadge('io-s-g', plc.outputs.S_G);
+    updateIoBadge('io-w-g', plc.outputs.W_G);
+}
+
+function updateIoBadge(id, state) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (state) {
+        el.innerText = "ON";
+        el.className = "px-2.5 py-0.5 text-[10px] rounded-full bg-emerald-100 text-emerald-600 border border-emerald-300 font-extrabold";
+    } else {
+        el.innerText = "OFF";
+        el.className = "px-2.5 py-0.5 text-[10px] rounded-full bg-slate-100 text-slate-400";
+    }
+}
+
+// -------------------------------------------------------------
+// 2D Kawaii Pastel Intersection Renderer (HTML5 Canvas)
+// -------------------------------------------------------------
+class KawaiiIntersection2D {
+    constructor(canvasId) {
+        this.canvas = document.getElementById(canvasId);
+        this.ctx = this.canvas ? this.canvas.getContext('2d') : null;
+        this.time = 0;
+
+        // Dekorasi pohon bulat pastel & bunga di 4 sudut taman
+        this.trees = [
+            { x: 65, y: 75, r: 24, color: '#86efac' },
+            { x: 135, y: 125, r: 20, color: '#a7f3d0' },
+            { x: 465, y: 75, r: 24, color: '#86efac' },
+            { x: 530, y: 135, r: 19, color: '#6ee7b7' },
+            { x: 75, y: 475, r: 22, color: '#a7f3d0' },
+            { x: 130, y: 530, r: 25, color: '#86efac' },
+            { x: 470, y: 525, r: 24, color: '#6ee7b7' },
+            { x: 530, y: 465, r: 20, color: '#86efac' }
+        ];
+
+        this.flowers = [
+            { x: 165, y: 65, c: '#f472b6' }, { x: 65, y: 165, c: '#fde047' },
+            { x: 440, y: 165, c: '#c084fc' }, { x: 535, y: 65, c: '#fb7185' },
+            { x: 165, y: 440, c: '#38bdf8' }, { x: 60, y: 535, c: '#f472b6' },
+            { x: 445, y: 445, c: '#fde047' }, { x: 535, y: 535, c: '#c084fc' }
+        ];
+
+        // Awan lembut melayang
+        this.clouds = [
+            { x: 90, y: 42, speed: 12, scale: 0.85 },
+            { x: 480, y: 38, speed: 9, scale: 0.75 }
+        ];
+
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+    }
+
+    resize() {
+        if (!this.canvas || !this.canvas.parentElement) return;
+        const rect = this.canvas.parentElement.getBoundingClientRect();
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        this.canvas.width = rect.width * dpr;
+        this.canvas.height = rect.height * dpr;
+    }
+
+    drawRoundedRect(ctx, x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        ctx.lineTo(x + r, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.closePath();
+    }
+
+    drawEnvironment(ctx, dt) {
+        this.time += dt;
+
+        // 1. Rumput Pastel Lembut
+        ctx.fillStyle = '#dcfce7';
+        ctx.fillRect(0, 0, 600, 600);
+
+        // Tekstur titik-titik rumput manis
+        ctx.fillStyle = '#bbf7d0';
+        for (let gx = 30; gx < 600; gx += 60) {
+            for (let gy = 30; gy < 600; gy += 60) {
+                if ((gx < 200 || gx > 400) && (gy < 200 || gy > 400)) {
+                    ctx.beginPath();
+                    ctx.arc(gx, gy, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        // 2. Trotoar Pastel Cream dengan Sudut Membulat
+        const drawCornerPark = (x, y, w, h) => {
+            ctx.fillStyle = '#fef3c7';
+            this.drawRoundedRect(ctx, x, y, w, h, 28);
+            ctx.fill();
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#fde68a';
+            ctx.stroke();
+        };
+        drawCornerPark(-20, -20, 232, 232);
+        drawCornerPark(388, -20, 232, 232);
+        drawCornerPark(-20, 388, 232, 232);
+        drawCornerPark(388, 388, 232, 232);
+
+        // 3. Aspal Jalan Lembut (Soft Slate Pastel)
+        ctx.fillStyle = '#475569';
+        ctx.fillRect(220, 0, 160, 600);
+        ctx.fillRect(0, 220, 600, 160);
+
+        // Garis tepi jalan pastel putih
+        ctx.strokeStyle = '#f8fafc';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        // Kiri atas, kanan atas, kiri bawah, kanan bawah
+        ctx.moveTo(222, 0); ctx.lineTo(222, 222); ctx.lineTo(0, 222);
+        ctx.moveTo(378, 0); ctx.lineTo(378, 222); ctx.lineTo(600, 222);
+        ctx.moveTo(222, 600); ctx.lineTo(222, 378); ctx.lineTo(0, 378);
+        ctx.moveTo(378, 600); ctx.lineTo(378, 378); ctx.lineTo(600, 378);
+        ctx.stroke();
+
+        // 4. Zebra Cross Kawaii (Bulat-bulat memanjang)
+        ctx.fillStyle = '#ffffff';
+        for (let i = 232; i <= 356; i += 24) {
+            // Utara & Selatan
+            this.drawRoundedRect(ctx, i, 192, 14, 24, 6); ctx.fill();
+            this.drawRoundedRect(ctx, i, 384, 14, 24, 6); ctx.fill();
+            // Barat & Timur
+            this.drawRoundedRect(ctx, 192, i, 24, 14, 6); ctx.fill();
+            this.drawRoundedRect(ctx, 384, i, 24, 14, 6); ctx.fill();
+        }
+
+        // 5. Marka Garis Tengah Putus-Putus Kuning Pastel
+        ctx.strokeStyle = '#fde047';
+        ctx.lineWidth = 4;
+        ctx.setLineDash([16, 16]);
+        ctx.beginPath();
+        ctx.moveTo(300, 0); ctx.lineTo(300, 175);
+        ctx.moveTo(300, 425); ctx.lineTo(300, 600);
+        ctx.moveTo(0, 300); ctx.lineTo(175, 300);
+        ctx.moveTo(425, 300); ctx.lineTo(600, 300);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 6. Garis Stop Putih Tebal
+        ctx.fillStyle = '#ffffff';
+        this.drawRoundedRect(ctx, 228, 178, 66, 7, 3.5); ctx.fill(); // Stop Utara
+        this.drawRoundedRect(ctx, 306, 415, 66, 7, 3.5); ctx.fill(); // Stop Selatan
+        this.drawRoundedRect(ctx, 178, 306, 7, 66, 3.5); ctx.fill(); // Stop Barat
+        this.drawRoundedRect(ctx, 415, 228, 7, 66, 3.5); ctx.fill(); // Stop Timur
+
+        // 7. Bunga & Pohon Chibi yang Bergoyang Lembut
+        this.flowers.forEach((f, idx) => {
+            const sway = Math.sin(this.time * 2.5 + idx) * 1.5;
+            ctx.fillStyle = f.c;
+            for (let p = 0; p < 5; p++) {
+                const ang = (p * Math.PI * 2) / 5;
+                ctx.beginPath();
+                ctx.arc(f.x + sway + Math.cos(ang) * 4.5, f.y + Math.sin(ang) * 4.5, 3.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.fillStyle = '#fef08a';
+            ctx.beginPath();
+            ctx.arc(f.x + sway, f.y, 3, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        this.trees.forEach((t, idx) => {
+            const bounce = Math.sin(this.time * 2 + idx) * 1.8;
+            // Bayangan pohon
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.08)';
+            ctx.beginPath();
+            ctx.ellipse(t.x, t.y + t.r * 0.85, t.r * 0.85, t.r * 0.35, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Batang pohon
+            ctx.fillStyle = '#d97706';
+            this.drawRoundedRect(ctx, t.x - 4, t.y + 4, 8, t.r * 0.75, 4);
+            ctx.fill();
+
+            // Daun bulat fluffy
+            ctx.fillStyle = t.color;
+            ctx.beginPath();
+            ctx.arc(t.x, t.y + bounce, t.r, 0, Math.PI * 2);
+            ctx.arc(t.x - t.r * 0.55, t.y + 4 + bounce, t.r * 0.65, 0, Math.PI * 2);
+            ctx.arc(t.x + t.r * 0.55, t.y + 4 + bounce, t.r * 0.65, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.lineWidth = 2.5;
+            ctx.strokeStyle = '#34d399';
+            ctx.stroke();
+        });
+    }
+
+    drawKawaiiTrafficLight(ctx, x, y, label, isR, isY, isG) {
+        ctx.save();
+        ctx.translate(x, y);
+
+        // Bayangan kotak lampu
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.14)';
+        this.drawRoundedRect(ctx, -20, -40, 44, 86, 16);
+        ctx.fill();
+
+        // Rumah Lampu Pastel Gelap yang Imut
+        ctx.fillStyle = '#334155';
+        this.drawRoundedRect(ctx, -22, -43, 44, 86, 16);
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#ffffff';
+        ctx.stroke();
+
+        // Telinga kecil di atas lampu lalu lintas biar makin kyut
+        ctx.fillStyle = '#334155';
+        ctx.beginPath();
+        ctx.arc(-13, -43, 6, 0, Math.PI * 2);
+        ctx.arc(13, -43, 6, 0, Math.PI * 2);
+        ctx.fill();
+
+        const drawBulb = (by, active, onColor, offColor, glowColor) => {
+            if (active) {
+                ctx.save();
+                ctx.shadowColor = glowColor;
+                ctx.shadowBlur = 16;
+                ctx.fillStyle = onColor;
+                ctx.beginPath();
+                ctx.arc(0, by, 9.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+
+                // Kilauan mata imut pada lampu yang menyala
+                ctx.fillStyle = 'rgba(255,255,255,0.85)';
+                ctx.beginPath();
+                ctx.arc(-3, by - 3, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+            } else {
+                ctx.fillStyle = offColor;
+                ctx.beginPath();
+                ctx.arc(0, by, 9, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        };
+
+        drawBulb(-21, isR, '#fb7185', '#4c1d24', '#f43f5e');
+        drawBulb(0,   isY, '#facc15', '#422006', '#eab308');
+        drawBulb(21,  isG, '#4ade80', '#14532d', '#22c55e');
+
+        // Label Arah di bawah lampu
+        ctx.fillStyle = '#ffffff';
+        this.drawRoundedRect(ctx, -26, 48, 52, 16, 8);
+        ctx.fill();
+        ctx.fillStyle = '#475569';
+        ctx.font = 'bold 9px Quicksand, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, 0, 56.5);
+
+        ctx.restore();
+    }
+
+    drawKawaiiCar(ctx, v) {
+        ctx.save();
+        let cx = 300, cy = 300, angle = 0;
+
+        if (v.dir === 'UTARA') {
+            cx = 260; cy = v.pos; angle = Math.PI / 2;
+        } else if (v.dir === 'SELATAN') {
+            cx = 340; cy = v.pos; angle = -Math.PI / 2;
+        } else if (v.dir === 'BARAT') {
+            cx = v.pos; cy = 340; angle = 0;
+        } else if (v.dir === 'TIMUR') {
+            cx = v.pos; cy = 260; angle = Math.PI;
+        }
+
+        // Efek suspensi membal lembut saat melaju atau mengerem
+        const bounceY = v.currentSpeed > 10 ? Math.sin(this.time * 18 + v.pos * 0.1) * 0.8 : 0;
+
+        ctx.translate(cx, cy);
+        ctx.rotate(angle);
+        ctx.translate(0, bounceY);
+
+        // Bayangan mobil
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.18)';
+        this.drawRoundedRect(ctx, -21, -13, 44, 28, 12);
+        ctx.fill();
+
+        // 4 Roda Chibi
+        ctx.fillStyle = '#1e293b';
+        this.drawRoundedRect(ctx, -15, -16, 10, 4, 2); ctx.fill();
+        this.drawRoundedRect(ctx, 6, -16, 10, 4, 2); ctx.fill();
+        this.drawRoundedRect(ctx, -15, 12, 10, 4, 2); ctx.fill();
+        this.drawRoundedRect(ctx, 6, 12, 10, 4, 2); ctx.fill();
+
+        // Bodi Mobil Chibi Membulat
+        ctx.fillStyle = v.color;
+        this.drawRoundedRect(ctx, -21, -14, 42, 28, 12);
+        ctx.fill();
+        ctx.lineWidth = 2.5;
+        ctx.strokeStyle = '#ffffff';
+        ctx.stroke();
+
+        // Atap / Kaca Kabin Chibi
+        ctx.fillStyle = '#f8fafc';
+        this.drawRoundedRect(ctx, -11, -10, 22, 20, 8);
+        ctx.fill();
+
+        // Mata Lucu di Kaca Depan
+        ctx.fillStyle = '#1e293b';
+        ctx.beginPath();
+        ctx.arc(6, -4.5, 2.2, 0, Math.PI * 2);
+        ctx.arc(6, 4.5, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Kilauan mata
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(6.8, -5.2, 0.9, 0, Math.PI * 2);
+        ctx.arc(6.8, 3.8, 0.9, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Pipi Merona (Blush)
+        ctx.fillStyle = '#fb7185';
+        ctx.beginPath();
+        ctx.ellipse(4, -8, 2.2, 1.3, 0, 0, Math.PI * 2);
+        ctx.ellipse(4, 8, 2.2, 1.3, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Lampu Depan (Headlights)
+        ctx.fillStyle = '#fef08a';
+        ctx.beginPath();
+        ctx.arc(20, -8, 2.5, 0, Math.PI * 2);
+        ctx.arc(20, 8, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Lampu Rem Belakang (Menyala terang saat berhenti/mengerem)
+        const braking = v.isBraking || v.currentSpeed < 5;
+        ctx.save();
+        if (braking) {
+            ctx.shadowColor = '#ef4444';
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = '#ff2a2a';
+        } else {
+            ctx.fillStyle = '#991b1b';
+        }
+        this.drawRoundedRect(ctx, -22, -10, 3, 5, 1.5); ctx.fill();
+        this.drawRoundedRect(ctx, -22, 5, 3, 5, 1.5); ctx.fill();
+        ctx.restore();
+
+        ctx.restore();
+    }
+
+    drawClouds(ctx, dt) {
+        this.clouds.forEach(c => {
+            c.x += c.speed * dt;
+            if (c.x > 660) c.x = -60;
+
+            ctx.save();
+            ctx.translate(c.x, c.y);
+            ctx.scale(c.scale, c.scale);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+            ctx.beginPath();
+            ctx.arc(0, 0, 16, 0, Math.PI * 2);
+            ctx.arc(16, -4, 20, 0, Math.PI * 2);
+            ctx.arc(34, 0, 15, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        });
+    }
+
+    render(dt, outputs, vehicles) {
+        if (!this.ctx || !this.canvas) return;
+        const ctx = this.ctx;
+        const scale = this.canvas.width / 600;
+
+        ctx.save();
+        ctx.scale(scale, scale);
+
+        // 1. Gambar latar belakang taman, jalan, marka, dan pohon
+        this.drawEnvironment(ctx, dt);
+
+        // 2. Gambar semua kendaraan chibi
+        vehicles.forEach(v => this.drawKawaiiCar(ctx, v));
+
+        // 3. Gambar 4 lampu lalu lintas 2D imut di sudut persimpangan
+        this.drawKawaiiTrafficLight(ctx, 182, 132, 'UTARA',   outputs.N_R, outputs.N_Y, outputs.N_G);
+        this.drawKawaiiTrafficLight(ctx, 418, 132, 'TIMUR',   outputs.E_R, outputs.E_Y, outputs.E_G);
+        this.drawKawaiiTrafficLight(ctx, 418, 452, 'SELATAN', outputs.S_R, outputs.S_Y, outputs.S_G);
+        this.drawKawaiiTrafficLight(ctx, 182, 452, 'BARAT',   outputs.W_R, outputs.W_Y, outputs.W_G);
+
+        // 4. Gambar awan melayang lembut di bagian atas
+        this.drawClouds(ctx, dt);
+
+        ctx.restore();
+    }
+}
+
+let scene2D;
+
+// -------------------------------------------------------------
+// Sistem Simulasi Kendaraan 4-Arah (Akselerasi, Pengereman & Patuh Lampu)
+// -------------------------------------------------------------
+class TrafficVehicleManager {
+    constructor() {
+        const rawVehicles = [
+            // Jalur Utara -> Selatan (4 Kendaraan Pastel)
+            { id: 'vN1', dir: 'UTARA', pos: 10,   maxSpeed: 155, color: '#7dd3fc' },
+            { id: 'vN2', dir: 'UTARA', pos: -70,  maxSpeed: 155, color: '#c4b5fd' },
+            { id: 'vN3', dir: 'UTARA', pos: -150, maxSpeed: 155, color: '#f9a8d4' },
+            { id: 'vN4', dir: 'UTARA', pos: -230, maxSpeed: 155, color: '#fdba74' },
+            // Jalur Timur -> Barat (4 Kendaraan Pastel)
+            { id: 'vE1', dir: 'TIMUR', pos: 510, maxSpeed: 155, color: '#6ee7b7' },
+            { id: 'vE2', dir: 'TIMUR', pos: 590, maxSpeed: 155, color: '#d8b4fe' },
+            { id: 'vE3', dir: 'TIMUR', pos: 670, maxSpeed: 155, color: '#fde047' },
+            { id: 'vE4', dir: 'TIMUR', pos: 750, maxSpeed: 155, color: '#fda4af' },
+            // Jalur Selatan -> Utara (4 Kendaraan Pastel)
+            { id: 'vS1', dir: 'SELATAN', pos: 510, maxSpeed: 155, color: '#67e8f9' },
+            { id: 'vS2', dir: 'SELATAN', pos: 590, maxSpeed: 155, color: '#f0abfc' },
+            { id: 'vS3', dir: 'SELATAN', pos: 670, maxSpeed: 155, color: '#86efac' },
+            { id: 'vS4', dir: 'SELATAN', pos: 750, maxSpeed: 155, color: '#fca5a5' },
+            // Jalur Barat -> Timur (4 Kendaraan Pastel)
+            { id: 'vW1', dir: 'BARAT', pos: 10,   maxSpeed: 155, color: '#93c5fd' },
+            { id: 'vW2', dir: 'BARAT', pos: -70,  maxSpeed: 155, color: '#fef08a' },
+            { id: 'vW3', dir: 'BARAT', pos: -150, maxSpeed: 155, color: '#fcd34d' },
+            { id: 'vW4', dir: 'BARAT', pos: -230, maxSpeed: 155, color: '#f5d0fe' }
+        ];
+
+        this.vehicles = rawVehicles.map(v => ({
+            ...v,
+            currentSpeed: v.maxSpeed,
+            isBraking: false
+        }));
+    }
+
+    update(dt, outputs) {
+        const minGap = 54;
+        const slowDownGap = 100;
+        const stopLines = { UTARA: 154, SELATAN: 446, BARAT: 154, TIMUR: 446 };
+        const accelRate = 135;
+        const brakeRate = 290;
+
+        this.vehicles.forEach(v => {
+            const isGreen = (
+                (v.dir === 'UTARA' && outputs.N_G) ||
+                (v.dir === 'TIMUR' && outputs.E_G) ||
+                (v.dir === 'SELATAN' && outputs.S_G) ||
+                (v.dir === 'BARAT' && outputs.W_G)
+            );
+
+            let targetSpeed = v.maxSpeed;
+
+            // 1. Cek jarak dengan kendaraan di depan pada lajur yang sama
+            let nearestDist = Infinity;
+            this.vehicles.forEach(other => {
+                if (other.id !== v.id && other.dir === v.dir) {
+                    const dist = (v.dir === 'UTARA' || v.dir === 'BARAT')
+                        ? (other.pos - v.pos)
+                        : (v.pos - other.pos);
+                    if (dist > 0 && dist < nearestDist) {
+                        nearestDist = dist;
+                    }
+                }
+            });
+
+            if (nearestDist <= minGap) {
+                targetSpeed = 0;
+            } else if (nearestDist < slowDownGap) {
+                const ratio = (nearestDist - minGap) / (slowDownGap - minGap);
+                targetSpeed = Math.min(targetSpeed, v.maxSpeed * ratio);
+            }
+
+            // 2. Cek jarak ke garis stop jika lampu Merah atau Kuning
+            if (!isGreen) {
+                const distToStop = (v.dir === 'UTARA' || v.dir === 'BARAT')
+                    ? (stopLines[v.dir] - v.pos)
+                    : (v.pos - stopLines[v.dir]);
+
+                if (distToStop >= -2 && distToStop < 115) {
+                    if (distToStop <= 2) {
+                        targetSpeed = 0;
+                    } else {
+                        const stopRatio = Math.max(0, (distToStop - 2) / 113);
+                        targetSpeed = Math.min(targetSpeed, v.maxSpeed * Math.pow(stopRatio, 0.85));
+                    }
+                }
+            }
+
+            // 3. Interpolasi kecepatan (akselerasi & pengereman halus)
+            const prevSpeed = v.currentSpeed;
+            if (v.currentSpeed < targetSpeed) {
+                v.currentSpeed = Math.min(targetSpeed, v.currentSpeed + accelRate * dt);
+                v.isBraking = false;
+            } else if (v.currentSpeed > targetSpeed) {
+                v.currentSpeed = Math.max(targetSpeed, v.currentSpeed - brakeRate * dt);
+                v.isBraking = (prevSpeed - v.currentSpeed) > 1.5;
+            } else {
+                v.isBraking = v.currentSpeed === 0;
+            }
+
+            // 4. Update posisi kendaraan
+            if (v.dir === 'UTARA' || v.dir === 'BARAT') {
+                v.pos += v.currentSpeed * dt;
+                if (!isGreen && v.pos > stopLines[v.dir] && v.pos - v.currentSpeed * dt <= stopLines[v.dir]) {
+                    v.pos = stopLines[v.dir];
+                    v.currentSpeed = 0;
+                }
+                if (v.pos > 650) v.pos = -90;
+            } else {
+                v.pos -= v.currentSpeed * dt;
+                if (!isGreen && v.pos < stopLines[v.dir] && v.pos + v.currentSpeed * dt >= stopLines[v.dir]) {
+                    v.pos = stopLines[v.dir];
+                    v.currentSpeed = 0;
+                }
+                if (v.pos < -50) v.pos = 690;
+            }
+        });
+    }
+}
+
+const vehicleSim = new TrafficVehicleManager();
+
+function updateDurationPreset(val) {
+    plc.timer.PRE = parseInt(val, 10);
+    document.getElementById('preset-value-label').innerText = val + 's';
+    document.getElementById('t-preset').innerText = val + 's';
+}
+
+function plcMainLoop(now) {
+    const deltaTime = Math.min((now - lastTime) / 1000, 0.1);
+    lastTime = now;
+    plc.scanCycle(deltaTime);
+    vehicleSim.update(deltaTime, plc.outputs);
+    updateUI();
+    if (scene2D) {
+        scene2D.render(deltaTime, plc.outputs, vehicleSim.vehicles);
+    }
+    requestAnimationFrame(plcMainLoop);
+}
+
+window.onload = function() {
+    initIcons();
+    scene2D = new KawaiiIntersection2D('traffic-canvas-2d');
+    lastTime = performance.now();
+    requestAnimationFrame(plcMainLoop);
+};
+</script>
+</body>
+</html>
